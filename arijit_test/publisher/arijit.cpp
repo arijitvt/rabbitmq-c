@@ -41,7 +41,7 @@ Rabbit::Rabbit(string host, string vhost,string username,string password, int po
 , d_password(password)
 , d_port(port)
 , d_channel(1) {
-	d_exchangeName = "testexchange";
+	d_exchangeName = "arijit";
 	d_routingKey = d_exchangeName;
 	connect();
 	declareExchange();
@@ -102,8 +102,8 @@ int Rabbit::declareExchange() {
 	amqp_exchange_declare (d_connection,
 			channel,
 			amqp_cstring_bytes(d_exchangeName.c_str()),
-			amqp_cstring_bytes("direct"),
-			amqp_boolean_t(1), //passive
+			amqp_cstring_bytes("fanout"),
+			amqp_boolean_t(0), //passive
 			amqp_boolean_t(1), //durable
 			amqp_boolean_t(0), //auto-delete
 			amqp_boolean_t(0), //internal
