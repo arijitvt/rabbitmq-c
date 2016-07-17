@@ -1,37 +1,5 @@
-#include <iostream>
-#include <string>
-#include <amqp.h>   
-#include <amqp_framing.h>
-#include <amqp_tcp_socket.h>
+#include <rabbit.h>
 
-using namespace std;
-
-
-class Rabbit {
-	public:
-		Rabbit(string host, string vhost, string username, string password, int port);
-		~Rabbit();
-		int publish(const string& msg);
-
-
-	private:
-		int connect();
-		int declareExchange();
-
-	private:
-		amqp_socket_t *d_socket; 
-		amqp_connection_state_t d_connection;
-		string d_host;
-		string d_vhost; 
-		string d_username; 
-		string d_password; 
-		string d_exchangeName;
-		string d_queueName; 
-		string d_routingKey;
-		int d_port;                
-		int d_channel;
-
-};
 
 Rabbit::Rabbit(string host, string vhost,string username,string password, int port) 
 :d_socket(NULL)
@@ -40,11 +8,11 @@ Rabbit::Rabbit(string host, string vhost,string username,string password, int po
 , d_username(username)
 , d_password(password)
 , d_port(port)
-, d_channel(1) {
+, d_channel(1)
+, d_isPublisher(false) {
 	d_exchangeName = "arijit";
 	d_routingKey = d_exchangeName;
-	connect();
-	declareExchange();
+
 
 }  
 
@@ -52,6 +20,24 @@ Rabbit::~Rabbit() {
 	amqp_channel_t channel(1);
 	amqp_channel_close(d_connection,channel, AMQP_REPLY_SUCCESS);
 	amqp_destroy_connection(d_connection);
+}
+
+int  Rabbit::initPublisher() 
+{
+	connect();
+	declareExchange();
+	d_isPublisher = true;
+	return 0;
+}
+
+int Rabbit::initConsumer() 
+{
+	connect();
+	declareExchange(); 
+	declareQueue(); 
+	bindQueue();
+	d_isPublisher = false;
+	return 0;
 }
 
 int Rabbit::connect() {
@@ -119,33 +105,67 @@ int Rabbit::declareExchange() {
 
 }
 
-int Rabbit::publish(const string& msg) {
-	amqp_channel_t channel(1);
-	int rc  =  amqp_basic_publish(d_connection,
-			channel,
-			amqp_cstring_bytes(d_exchangeName.c_str()),
-			amqp_cstring_bytes(d_routingKey.c_str()),
-			amqp_boolean_t(0),
-			amqp_boolean_t(0),
-			NULL, 
-			amqp_cstring_bytes(msg.c_str()));
+int Rabbit::publish(const string& msg) 
+{
+	if(d_isPublisher) {
+		amqp_channel_t channel(1);
+		int rc  =  amqp_basic_publish(d_connection,
+				channel,
+				amqp_cstring_bytes(d_exchangeName.c_str()),
+				amqp_cstring_bytes(d_routingKey.c_str()),
+				amqp_boolean_t(0),
+				amqp_boolean_t(0),
+				NULL, 
+				amqp_cstring_bytes(msg.c_str()));
+	} else {
+		cerr << "Not a publisher"<<  endl;
+	}
 
 
 }
 
-int main (int argc, char **argv) {
-                                                                        
-	Rabbit rabbit("moose.rmq.cloudamqp.com","ikpboixq","ikpboixq","MNSRLLPQ54loor_B0dJLDKBAwtmgChbx",5672);
-	string input;                             
+int Rabbit::declareQueue() {
+	amqp_channel_t channel(1);
+	amqp_queue_declare_ok_t *rc  =amqp_queue_declare(d_connection,
+			channel,
+			amqp_empty_bytes,
+			amqp_boolean_t(0),
+			amqp_boolean_t(0),
+			amqp_boolean_t(1),
+			amqp_boolean_t(1),
+			amqp_empty_table);
+
+	d_queueName = string( (char*) rc->queue.bytes);
+	cout << "Queue name : " << d_queueName << endl;
+	return 0;
+}
+
+int Rabbit::bindQueue() 
+{
+    amqp_channel_t channel(1);
+	amqp_queue_bind(d_connection,
+			channel,
+			amqp_cstring_bytes(d_queueName.c_str()),
+			amqp_cstring_bytes(d_exchangeName.c_str()),
+			amqp_cstring_bytes("arijit"),
+			amqp_empty_table);
+	return 0;
+}
+
+int Rabbit::consume() 
+{
+	amqp_channel_t channel(1);
 
 	while(true) {
-		cout << "Enter message to publish" << endl;
-		cin >> input ; 
-		if(input == "stop") {
-			break;
-		}
-		rabbit.publish(input);
+		amqp_basic_consume(d_connection,
+				channel,
+				amqp_cstring_bytes(d_queueName.c_str()),
+				amqp_empty_bytes,
+				amqp_boolean_t(0),
+				amqp_boolean_t(0),
+				amqp_boolean_t(1),
+
 	}
-	
 	return 0;
+
 }

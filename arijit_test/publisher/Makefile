@@ -8,7 +8,8 @@ target=output
 cflags=-g -c -std=c++0x -I$(boost_inc) -I.
 lflags=-L$(boost_lib) -lboost_system -lboost_thread -lrabbitmq
 
-objs=arijit.o
+objs=rabbit.o \
+	 main.o
 
 
 all:$(objs) 
@@ -17,6 +18,7 @@ all:$(objs)
 
 %.o:%.cpp
 	$(cc) $(cflags) -o $@ $<
+
 
 
 clean:

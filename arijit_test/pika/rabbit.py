@@ -18,7 +18,7 @@ class Rabbit :
 
     def __declareExchange(self):
         self.exchange_name = "arijit";
-        self.channel.exchange_declare(exchange=self.exchange_name, type='fanout');
+        self.channel.exchange_declare(exchange=self.exchange_name, type='fanout',durable=True);
         return ;
 
     def __declareQueue(self) :
